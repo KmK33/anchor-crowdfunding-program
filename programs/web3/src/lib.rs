@@ -6,8 +6,11 @@ declare_id!("7ffMY6G9LXz8KArt5CS9APuJMQC547Q7sZ194SyQ1Rij");
 pub mod web3 {
     
 
+    use anchor_lang::solana_program::{program::invoke, system_instruction};
+
     use super::*;
 
+    //As name suggestes creates campaign
     pub fn create_campaign(
         ctx: Context<CreateCampaign>,
         title: String,
@@ -16,11 +19,13 @@ pub mod web3 {
         deadline: i64,
         image: String,
     ) -> Result<()> {
-        let campaign = &mut ctx.accounts.campaign;
-        let clock = Clock::get().unwrap();
-        
-        require!(deadline > clock.unix_timestamp, ErrorCode::InvalidDeadline);
+        let campaign = &mut ctx.accounts.campaign;//get campaign account
 
+        let clock = Clock::get().unwrap();//get current blockchain time
+        
+        require!(deadline > clock.unix_timestamp, ErrorCode::InvalidDeadline); // check for invalid deadline
+
+        //Creation of campaign
         campaign.owner = ctx.accounts.owner.key();
         campaign.title = title;
         campaign.description = description;
@@ -34,22 +39,38 @@ pub mod web3 {
         Ok(())
     }
     
+    //As the name suggests
     pub fn donate_to_campaign(ctx: Context<DonateToCampaign>, amount: u64) -> Result<()> {
-        let campaign = &mut ctx.accounts.campaign;
+        let campaign = &mut ctx.accounts.campaign;//campaign account
         let clock = Clock::get().unwrap();
 
-        require!(clock.unix_timestamp < campaign.deadline, ErrorCode::DeadlinePassed);
+        require!(clock.unix_timestamp < campaign.deadline, ErrorCode::DeadlinePassed);//Check if deadline has passed
 
-        campaign.donators.push(ctx.accounts.donator.key());
-        campaign.donations.push(amount);
-        campaign.amount_collected += amount;
+        campaign.donators.push(ctx.accounts.donator.key());//Add donater to donaters list
 
-        **ctx.accounts.campaign.to_account_info().try_borrow_mut_lamports()? -= amount;
-        **ctx.accounts.donator.to_account_info().try_borrow_mut_lamports()? += amount;
+        campaign.donations.push(amount); // donation amount to array of donations
+
+        campaign.amount_collected += amount;//total amount collected
+
+        //Lamport transfer from donator to campaign
+        invoke(
+            &system_instruction::transfer(
+                &ctx.accounts.donator.key(),
+                &ctx.accounts.campaign.key(),
+                amount,
+            ),
+            &[
+                //Accounts involved in transfer
+                ctx.accounts.donator.to_account_info(),
+                ctx.accounts.campaign.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
 
         Ok(())
     }
 
+    //All list of donaters
     pub fn get_donators(ctx: Context<GetDonators>) -> Result<DonatorsResponse> {
         let campaign = &ctx.accounts.campaign;
         Ok(DonatorsResponse {
@@ -58,6 +79,7 @@ pub mod web3 {
         })
     }
 
+    //All list of campaigns
     pub fn get_all_campaigns(ctx: Context<GetAllCampaigns>) -> Result<AllCampaignsResponse> {
         let state = &ctx.accounts.state;
         Ok(AllCampaignsResponse {
