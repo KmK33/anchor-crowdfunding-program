@@ -91,7 +91,7 @@ pub mod web3 {
 
 #[derive(Accounts)]
 pub struct CreateCampaign<'info> {
-    #[account(init, payer = owner, space = 8 + 256)]
+    #[account(init, payer = owner, space = 8 + 32 + 4 + 4 + 8 + 8 + 8 + 4 + 32 * 100 + 8 * 100 + 4)]
     pub campaign: Account<'info, Campaign>,
     #[account(mut)]
     pub owner: Signer<'info>,
